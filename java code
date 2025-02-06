@@ -1,0 +1,239 @@
+package com.hospitalmanagment.ui;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+import java.util.ArrayList;
+
+public class HospitalManagementUI {
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/gp1";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "shoeb@11";
+   
+    private JFrame frame;
+    private JTextField idField, nameField, ageField, addressField, contactField, diseaseField, searchField;
+    private JComboBox<String> genderBox;
+    private JLabel statusLabel;
+    private JTable patientTable;
+    private DefaultTableModel tableModel;
+   
+    public HospitalManagementUI() {
+        frame = new JFrame("Hospital Patient Management");
+        frame.setSize(700, 500);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
+       
+        JPanel formPanel = new JPanel(new GridLayout(8, 2, 5, 5));
+       
+        formPanel.add(new JLabel("Patient ID:"));
+        idField = new JTextField();
+        formPanel.add(idField);
+       
+        formPanel.add(new JLabel("Name:"));
+        nameField = new JTextField();
+        formPanel.add(nameField);
+       
+        formPanel.add(new JLabel("Age:"));
+        ageField = new JTextField();
+        formPanel.add(ageField);
+       
+        formPanel.add(new JLabel("Gender:"));
+        genderBox = new JComboBox<>(new String[]{"Male", "Female", "Other"});
+        formPanel.add(genderBox);
+       
+        formPanel.add(new JLabel("Address:"));
+        addressField = new JTextField();
+        formPanel.add(addressField);
+       
+        formPanel.add(new JLabel("Contact:"));
+        contactField = new JTextField();
+        formPanel.add(contactField);
+       
+        formPanel.add(new JLabel("Disease:"));
+        diseaseField = new JTextField();
+        formPanel.add(diseaseField);
+       
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 4, 5, 5));
+        JButton addButton = new JButton("Add");
+        JButton updateButton = new JButton("Update");
+        JButton deleteButton = new JButton("Delete");
+        JButton clearButton = new JButton("Clear");
+       
+        buttonPanel.add(addButton);
+        buttonPanel.add(updateButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(clearButton);
+       
+        formPanel.add(buttonPanel);
+        statusLabel = new JLabel(" ", JLabel.CENTER);
+        frame.add(formPanel, BorderLayout.NORTH);
+        frame.add(statusLabel, BorderLayout.SOUTH);
+       
+        tableModel = new DefaultTableModel(new String[]{"ID", "Name", "Age", "Gender", "Address", "Contact", "Disease"}, 0);
+        patientTable = new JTable(tableModel);
+        loadPatients();
+        frame.add(new JScrollPane(patientTable), BorderLayout.CENTER);
+       
+        addButton.addActionListener(e -> addPatient());
+        updateButton.addActionListener(e -> updatePatient());
+        deleteButton.addActionListener(e -> deletePatient());
+        clearButton.addActionListener(e -> clearFields());
+       
+        frame.setVisible(true);
+    }
+   
+    private void loadPatients() {
+        tableModel.setRowCount(0);
+        try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             Statement stmt = con.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM Patients")) {
+            while (rs.next()) {
+                tableModel.addRow(new Object[]{rs.getInt("patient_id"), rs.getString("name"), rs.getInt("age"), rs.getString("gender"), rs.getString("address"), rs.getString("contact"), rs.getString("disease")});
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+   
+    private void addPatient() {
+        try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             PreparedStatement pst = con.prepareStatement("INSERT INTO Patients VALUES (?, ?, ?, ?, ?, ?, ?)");) {
+            pst.setInt(1, Integer.parseInt(idField.getText()));
+            pst.setString(2, nameField.getText());
+            pst.setInt(3, Integer.parseInt(ageField.getText()));
+            pst.setString(4, (String) genderBox.getSelectedItem());
+            pst.setString(5, addressField.getText());
+            pst.setString(6, contactField.getText());
+            pst.setString(7, diseaseField.getText());
+            pst.executeUpdate();
+            statusLabel.setText("Patient Added Successfully");
+            loadPatients();
+        } catch (SQLException | NumberFormatException e) {
+            statusLabel.setText("Error Adding Patient");
+        }
+    }
+   
+//    private void updatePatient() {
+//        try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+//             PreparedStatement pst = con.prepareStatement("UPDATE Patients SET name=?, age=?, gender=?, address=?, contact=?, disease=? WHERE patient_id=?")) {
+//            pst.setString(1, nameField.getText());
+//            pst.setInt(2, Integer.parseInt(ageField.getText()));
+//            pst.setString(3, (String) genderBox.getSelectedItem());
+//            pst.setString(4, addressField.getText());
+//            pst.setString(5, contactField.getText());
+//            pst.setString(6, diseaseField.getText());
+//            pst.setInt(7, Integer.parseInt(idField.getText()));
+//            pst.executeUpdate();
+//            statusLabel.setText("Patient Updated Successfully");
+//            loadPatients();
+//        } catch (SQLException | NumberFormatException e) {
+//            statusLabel.setText("Error Updating Patient");
+//        }
+//    }
+   
+    private void updatePatient() {
+        int patientId;
+        try {
+            patientId = Integer.parseInt(idField.getText().trim());
+        } catch (NumberFormatException e) {
+            statusLabel.setText("Invalid Patient ID!");
+            return;
+        }
+
+        StringBuilder query = new StringBuilder("UPDATE Patients SET ");
+        boolean hasFieldsToUpdate = false;
+       
+        // Store parameters for PreparedStatement
+        ArrayList<Object> params = new ArrayList<>();
+
+        if (!nameField.getText().trim().isEmpty()) {
+            query.append("name = ?, ");
+            params.add(nameField.getText().trim());
+            hasFieldsToUpdate = true;
+        }
+        if (!ageField.getText().trim().isEmpty()) {
+            query.append("age = ?, ");
+            params.add(Integer.parseInt(ageField.getText().trim()));
+            hasFieldsToUpdate = true;
+        }
+        if (genderBox.getSelectedItem() != null) {
+            query.append("gender = ?, ");
+            params.add(genderBox.getSelectedItem().toString());
+            hasFieldsToUpdate = true;
+        }
+        if (!addressField.getText().trim().isEmpty()) {
+            query.append("address = ?, ");
+            params.add(addressField.getText().trim());
+            hasFieldsToUpdate = true;
+        }
+        if (!contactField.getText().trim().isEmpty()) {
+            query.append("contact = ?, ");
+            params.add(contactField.getText().trim());
+            hasFieldsToUpdate = true;
+        }
+        if (!diseaseField.getText().trim().isEmpty()) {
+            query.append("disease = ?, ");
+            params.add(diseaseField.getText().trim());
+            hasFieldsToUpdate = true;
+        }
+
+        if (!hasFieldsToUpdate) {
+            statusLabel.setText("No fields to update!");
+            return;
+        }
+
+        // Remove last comma and space
+        query.setLength(query.length() - 2);
+        query.append(" WHERE patient_id = ?");
+        params.add(patientId);
+
+        // Execute the update
+        try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             PreparedStatement pst = con.prepareStatement(query.toString())) {
+           
+            for (int i = 0; i < params.size(); i++) {
+                pst.setObject(i + 1, params.get(i));
+            }
+
+            int rowsUpdated = pst.executeUpdate();
+            if (rowsUpdated > 0) {
+                statusLabel.setText("Patient updated successfully!");
+                loadPatients(); // Refresh table
+            } else {
+                statusLabel.setText("No patient found with that ID.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            statusLabel.setText("Error updating patient.");
+        }
+    }
+
+   
+    private void deletePatient() {
+        try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             PreparedStatement pst = con.prepareStatement("DELETE FROM Patients WHERE patient_id=?")) {
+            pst.setInt(1, Integer.parseInt(idField.getText()));
+            pst.executeUpdate();
+            statusLabel.setText("Patient Deleted Successfully");
+            loadPatients();
+        } catch (SQLException | NumberFormatException e) {
+            statusLabel.setText("Error Deleting Patient");
+        }
+    }
+   
+    private void clearFields() {
+        idField.setText("");
+        nameField.setText("");
+        ageField.setText("");
+        addressField.setText("");
+        contactField.setText("");
+        diseaseField.setText("");
+    }
+   
+    public static void main(String[] args) {
+        new HospitalManagementUI();
+    }
+}
